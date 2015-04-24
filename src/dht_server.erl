@@ -28,12 +28,10 @@ fetch(Key) ->
 %%%===================================================================
 
 % Locate the {ServerId, ServerPid} responsible for storing the given Key hash.
-key_lookup(Key) ->
-    rpc({key_lookup, Key}).
+key_lookup(Key) -> rpc({key_lookup, Key}).
 
 % Find the {Id, Pid} details for the next and previous servers of a given Id hash.
-find_neighbours(Id) ->
-    rpc({find_neighbours, Id}).
+find_neighbours(Id) -> rpc({find_neighbours, Id}).
 
 print() -> % Print some debugging information to the shell.
     ServerPid = whereis(dht_root_node),
@@ -61,8 +59,7 @@ server_loop(Dict, Id, Next) ->
             {_PrevId, PrevPid, NextId, NextPid} = find_neighbours(Id),
             PrevPid ! {set_next, Id, self()}, %Tell previous node to point at me
             server_loop(Dict, Id, {NextId, NextPid}); %I'll now point at previous node's old next node.
-        {set_next, NextId, NextPid} ->
-            server_loop(Dict, Id, {NextId, NextPid});
+        {set_next, NextId, NextPid} -> server_loop(Dict, Id, {NextId, NextPid});
         % The ones after this are mostly for testing:
         {print, RequestInvokedAtServerPid} ->
             handle_print(RequestInvokedAtServerPid, Next),
@@ -78,19 +75,15 @@ handle_find_neighbours(From, _HashId, ServerId, {ServerId, ServerPid}) ->
 % Handle wrap-around of the ring...
 handle_find_neighbours(From, HashId, ServerId, {NextId, NextPid}) when NextId < ServerId -> 
     case (HashId > ServerId orelse HashId < NextId) of
-        true -> 
-            From ! {ServerId, self(), NextId, NextPid};
-        false -> 
-            NextPid ! {From, {find_neighbours, HashId}}
+        true -> From ! {ServerId, self(), NextId, NextPid};
+        false -> NextPid ! {From, {find_neighbours, HashId}}
     end;
 
 % Handle all the other nodes that do not wrap around.
 handle_find_neighbours(From, HashId, ServerId, {NextId, NextPid}) ->
     case (HashId > ServerId andalso HashId < NextId) of
-        true -> 
-            From ! {ServerId, self(), NextId, NextPid};
-        false -> 
-            NextPid ! {From, {find_neighbours, HashId}}
+        true -> From ! {ServerId, self(), NextId, NextPid};
+        false -> NextPid ! {From, {find_neighbours, HashId}}
     end.
 
 
@@ -102,18 +95,14 @@ handle_key_lookup(From, HashId, ServerId, {NextId, _NextPid})
 % Handle wrap-around of the ring...
 handle_key_lookup(From, HashId, ServerId, {NextId, NextPid}) when NextId < ServerId ->
     case (HashId > ServerId orelse HashId =< NextId) of
-        true -> 
-            From ! {NextId, NextPid};
-        false -> 
-            NextPid ! {From, {key_lookup, HashId}}
+        true -> From ! {NextId, NextPid};
+        false -> NextPid ! {From, {key_lookup, HashId}}
     end;
 
 handle_key_lookup(From, HashId, ServerId, {NextId, NextPid}) ->
     case (HashId > ServerId andalso HashId < NextId) of
-        true -> 
-            From ! {NextId, NextPid};
-        false -> 
-            NextPid ! {From, {key_lookup, HashId}}
+        true -> From ! {NextId, NextPid};
+        false -> NextPid ! {From, {key_lookup, HashId}}
     end.
 
 
@@ -165,11 +154,9 @@ find_neighbours_singlenode_test() ->
     print(),
     unregister(dht_root_node).
 
-find_neighbours_multinode_test() ->
-    helper_find_neighbours_test(false).
+find_neighbours_multinode_test() -> helper_find_neighbours_test(false).
 
-find_neighbours_multinode_outoforder_test() ->
-    helper_find_neighbours_test(true).
+find_neighbours_multinode_outoforder_test() -> helper_find_neighbours_test(true).
 
 key_lookup_singlenode_test() ->
     N0 = setup_test_singlenode(),
@@ -180,11 +167,9 @@ key_lookup_singlenode_test() ->
     print(),
     unregister(dht_root_node).
 
-key_lookup_multinode_test() ->
-    helper_key_lookup_test(false).
+key_lookup_multinode_test() -> helper_key_lookup_test(false).
 
-key_lookup_multinode_outoforder_test() ->
-    helper_key_lookup_test(true).
+key_lookup_multinode_outoforder_test() -> helper_key_lookup_test(true).
 
 %%%===================================================================
 %%% Helper functions only used by unit tests:
