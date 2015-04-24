@@ -3,25 +3,6 @@
 % Client API:
 -export([start_node/0, store/1, fetch/1]).
 
-% Test function. TODO: remove this!
--export([rt/0]).
-rt() -> % Ring tests...
-    io:format(" *** Staring first node.~n"),
-    start_node(),
-    timer:sleep(100),
-    print(),
-    io:format(" *** Staring second node.~n"),
-    start_node(),
-    timer:sleep(100),
-    print(),
-    io:format(" *** Staring third node.~n"),
-    start_node(),
-    timer:sleep(100),
-    print(),
-    Doc = "This is a test document.",
-    K = store(Doc),
-    {ok, Doc} = fetch(K).
-
 start_node() ->
     start_node(whereis(dht_root_node)).
 
@@ -81,7 +62,6 @@ server_loop(Dict, Id, Next) ->
             PrevPid ! {set_next, Id, self()}, %Tell previous node to point at me
             server_loop(Dict, Id, {NextId, NextPid}); %I'll now point at previous node's old next node.
         {set_next, NextId, NextPid} ->
-            io:format("~p on ~p setting next ~p/~p ~n", [Id, self(), NextId, NextPid]), 
             server_loop(Dict, Id, {NextId, NextPid});
         % The ones after this are mostly for testing:
         {print, RequestInvokedAtServerPid} ->
@@ -93,18 +73,14 @@ server_loop(Dict, Id, Next) ->
 
 % There is only one node in the ring right now
 handle_find_neighbours(From, _HashId, ServerId, {ServerId, ServerPid}) ->
-    io:format("*** There is only one server.~n"),
-    %From ! {ServerId, ServerPid, ServerId, ServerPid};
-    ok;
+    From ! {ServerId, ServerPid, ServerId, ServerPid};
 
 % Handle wrap-around of the ring...
 handle_find_neighbours(From, HashId, ServerId, {NextId, NextPid}) when NextId < ServerId -> 
     case (HashId > ServerId orelse HashId < NextId) of
         true -> 
-            io:format("~p at ~p belongs here. ***1~n", [HashId, ServerId]),
             From ! {ServerId, self(), NextId, NextPid};
         false -> 
-            io:format("Forwarding ~p from ~p to ~p ***1~n", [HashId, ServerId, NextId]),
             NextPid ! {From, {find_neighbours, HashId}}
     end;
 
@@ -112,10 +88,8 @@ handle_find_neighbours(From, HashId, ServerId, {NextId, NextPid}) when NextId < 
 handle_find_neighbours(From, HashId, ServerId, {NextId, NextPid}) ->
     case (HashId > ServerId andalso HashId < NextId) of
         true -> 
-            io:format("~p at ~p belongs here. ***2~n", [HashId, ServerId]),
             From ! {ServerId, self(), NextId, NextPid};
         false -> 
-            io:format("Forwarding ~p from ~p to ~p ***2~n", [HashId, ServerId, NextId]),
             NextPid ! {From, {find_neighbours, HashId}}
     end.
 
@@ -123,27 +97,22 @@ handle_find_neighbours(From, HashId, ServerId, {NextId, NextPid}) ->
 % The hash is the same as the server ID, or there is only one server in the ring.
 handle_key_lookup(From, HashId, ServerId, {NextId, _NextPid}) 
     when HashId == ServerId; ServerId == NextId ->
-    io:format("~p at ~p is here.~n", [HashId, ServerId]),
     From ! {ServerId, self()};
 
 % Handle wrap-around of the ring...
 handle_key_lookup(From, HashId, ServerId, {NextId, NextPid}) when NextId < ServerId ->
     case (HashId > ServerId orelse HashId =< NextId) of
         true -> 
-            io:format("~p at ~p is on ~p ***1~n", [HashId, ServerId, NextId]),
             From ! {NextId, NextPid};
         false -> 
-            io:format("Forwarding ~p from ~p to ~p ***1~n", [HashId, ServerId, NextId]),
             NextPid ! {From, {key_lookup, HashId}}
     end;
 
 handle_key_lookup(From, HashId, ServerId, {NextId, NextPid}) ->
     case (HashId > ServerId andalso HashId < NextId) of
         true -> 
-            io:format("~p at ~p is on ~p ***2~n", [HashId, ServerId, NextId]),
             From ! {NextId, NextPid};
         false -> 
-            io:format("Forwarding ~p from ~p to ~p ***2~n", [HashId, ServerId, NextId]),
             NextPid ! {From, {key_lookup, HashId}}
     end.
 
